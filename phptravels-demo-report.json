@@ -1,0 +1,20 @@
+{
+  "status" : "PASSED",
+  "testCase" : "Open the page and verify that the heading 'Get your demo access' is visible.",
+  "startUrl" : "https://phptravels.com/demo",
+  "finalUrl" : "https://phptravels.com/demo",
+  "mode" : "offline-text-check",
+  "model" : null,
+  "message" : "Visible text found: Get your demo access",
+  "durationMs" : 4110,
+  "assertions" : [ {
+    "type" : "text visible",
+    "expected" : "Get your demo access",
+    "target" : null,
+    "passed" : true,
+    "error" : null
+  } ],
+  "steps" : [ ],
+  "screenshot" : null,
+  "finishedAt" : "2026-11-06T13:03:48.954850700Z"
+}

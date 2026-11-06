@@ -1,0 +1,14 @@
+{
+  "status" : "FAILED",
+  "testCase" : "Open the page and verify that the heading 'Get your demo access' is visible.",
+  "startUrl" : "https://phptravels.com/demo",
+  "finalUrl" : "https://phptravels.com/demo",
+  "mode" : "groq-browser-agent",
+  "model" : "openai/gpt-oss-120b",
+  "message" : "OpenAI API returned HTTP 429: {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m5vsb2jce93att94x4fnjwbj` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 4331, Requested 4677. Please try again in 7.56s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing\",\"type\":\"tokens\",\"code\":\"rate_limit_exceeded\"}}\n",
+  "durationMs" : 7424,
+  "assertions" : [ ],
+  "steps" : [ ],
+  "screenshot" : "C:\\Users\\ASUS-PC\\Desktop\\CloudQA\\task 2\\failure.png",
+  "finishedAt" : "2026-11-06T13:43:18.515970800Z"
+}
