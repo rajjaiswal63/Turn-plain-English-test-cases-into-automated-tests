@@ -1,5 +1,7 @@
 package com.example.automation.service;
 
+import com.example.automation.model.AutomationModels.Failure;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -10,31 +12,33 @@ class UrlSafetyValidatorTest {
 
     @Test
     void allowsPublicHttpsWebsite() {
-        assertDoesNotThrow(() -> validator.validate("https://phptravels.com/demo"));
+        assertDoesNotThrow(() -> validator.validate("https://example.com/"));
     }
 
     @Test
     void rejectsLocalhost() {
-        assertThrows(AutomationException.class, () -> validator.validate("http://localhost/"));
+        assertThrows(Failure.class, () -> validator.validate("http://localhost/"));
     }
 
     @Test
     void rejectsPrivateIpLiteral() {
-        assertThrows(AutomationException.class, () -> validator.validate("http://192.168.1.10/"));
+        assertThrows(Failure.class, () -> validator.validate("http://192.168.1.10/"));
     }
 
     @Test
     void rejectsIpv6Loopback() {
-        assertThrows(AutomationException.class, () -> validator.validate("http://[::1]/"));
+        assertThrows(Failure.class, () -> validator.validate("http://[::1]/"));
     }
 
     @Test
     void rejectsUnsupportedScheme() {
-        assertThrows(AutomationException.class, () -> validator.validate("file:///etc/passwd"));
+        assertThrows(Failure.class, () -> validator.validate("file:///etc/passwd"));
     }
 
     @Test
     void rejectsNonStandardPort() {
-        assertThrows(AutomationException.class, () -> validator.validate("http://example.com:8080/"));
+        assertThrows(Failure.class, () -> validator.validate("http://example.com:8080/"));
     }
 }
+
+

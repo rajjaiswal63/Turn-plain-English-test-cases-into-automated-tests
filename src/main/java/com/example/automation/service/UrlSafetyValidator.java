@@ -10,6 +10,7 @@ import java.net.UnknownHostException;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import com.example.automation.model.AutomationModels.Failure;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -19,26 +20,26 @@ public class UrlSafetyValidator {
 
     public URI validate(String rawUrl) {
         if (rawUrl == null || rawUrl.isBlank() || rawUrl.length() > 2048) {
-            throw new AutomationException("Invalid or empty URL.");
+            throw new Failure("Invalid or empty URL.");
         }
         final URI uri;
         try {
             uri = new URI(rawUrl.trim()).normalize();
         } catch (URISyntaxException ex) {
-            throw new AutomationException("Invalid URL format.", ex);
+            throw new Failure("Invalid URL format.", ex);
         }
         String scheme = uri.getScheme();
         String host = uri.getHost();
         if (!uri.isAbsolute() || scheme == null || host == null
                 || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
-            throw new AutomationException("Only absolute HTTP or HTTPS website URLs are allowed.");
+            throw new Failure("Only absolute HTTP or HTTPS website URLs are allowed.");
         }
         if (uri.getRawUserInfo() != null || host.isBlank()) {
-            throw new AutomationException("URLs containing credentials or an invalid host are not allowed.");
+            throw new Failure("URLs containing credentials or an invalid host are not allowed.");
         }
         int port = uri.getPort();
         if (port != -1 && port != 80 && port != 443) {
-            throw new AutomationException("Only standard HTTP (80) and HTTPS (443) ports are allowed.");
+            throw new Failure("Only standard HTTP (80) and HTTPS (443) ports are allowed.");
         }
         String normalizedHost = host.toLowerCase(Locale.ROOT);
         if (normalizedHost.endsWith(".") ) normalizedHost = normalizedHost.substring(0, normalizedHost.length() - 1);
@@ -47,23 +48,23 @@ public class UrlSafetyValidator {
         }
         if (normalizedHost.equals("localhost") || normalizedHost.endsWith(".localhost")
                 || normalizedHost.equals("local") || normalizedHost.endsWith(".local")) {
-            throw new AutomationException("Local and localhost destinations are blocked.");
+            throw new Failure("Local and localhost destinations are blocked.");
         }
         try {
             if (normalizedHost.indexOf(':') < 0 && !isIpv4Literal(normalizedHost)) {
                 normalizedHost = IDN.toASCII(normalizedHost, IDN.USE_STD3_ASCII_RULES);
             }
             InetAddress[] addresses = resolve(normalizedHost);
-            if (addresses.length == 0) throw new AutomationException("The URL host did not resolve.");
+            if (addresses.length == 0) throw new Failure("The URL host did not resolve.");
             for (InetAddress address : addresses) {
                 if (!isPublicAddress(address)) {
-                    throw new AutomationException("The URL resolves to a private, local, or reserved IP address and is blocked.");
+                    throw new Failure("The URL resolves to a private, local, or reserved IP address and is blocked.");
                 }
             }
         } catch (UnknownHostException ex) {
-            throw new AutomationException("The URL host could not be resolved.", ex);
+            throw new Failure("The URL host could not be resolved.", ex);
         } catch (IllegalArgumentException ex) {
-            throw new AutomationException("Invalid internationalized domain name.", ex);
+            throw new Failure("Invalid internationalized domain name.", ex);
         }
         return uri;
     }
@@ -121,3 +122,4 @@ public class UrlSafetyValidator {
 
     private record CachedAddresses(InetAddress[] addresses, long expiresAtNanos) { }
 }
+

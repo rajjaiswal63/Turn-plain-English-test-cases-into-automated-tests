@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import com.example.automation.model.AutomationModels.Failure;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,7 +22,7 @@ public class DynamicElementFinder {
     private static final Pattern WORDS = Pattern.compile("[^\\p{L}\\p{N}]+", Pattern.UNICODE_CHARACTER_CLASS);
 
     public Match find(WebDriver driver, String action, String target) {
-        if (target == null || target.isBlank()) throw new AutomationException("AI plan did not identify the element to " + action + ".");
+        if (target == null || target.isBlank()) throw new Failure("AI plan did not identify the element to " + action + ".");
         List<Candidate> candidates = inspect(driver).stream()
                 .filter(c -> eligible(c, action))
                 .map(c -> new Candidate(c.data, c.element, score(c.data, action, target)))
@@ -29,13 +30,13 @@ public class DynamicElementFinder {
                 .sorted(Comparator.comparingInt(Candidate::score).reversed())
                 .toList();
         if (candidates.isEmpty()) {
-            throw new AutomationException("Could not identify a visible " + action + " target matching '" + target + "'.");
+            throw new Failure("Could not identify a visible " + action + " target matching '" + target + "'.");
         }
         Candidate best = candidates.get(0);
         int second = candidates.size() > 1 ? candidates.get(1).score : 0;
         if (best.score < 8 || (!action.equals("verify_visible") && second > 0 && best.score - second < 3)) {
             String examples = candidates.stream().limit(4).map(c -> describe(c.data)).toList().toString();
-            throw new AutomationException("Element target '" + target + "' is ambiguous or a weak match. Candidates: " + examples);
+            throw new Failure("Element target '" + target + "' is ambiguous or a weak match. Candidates: " + examples);
         }
         return new Match(best.element, describe(best.data), best.score, best.data);
     }
@@ -73,6 +74,7 @@ public class DynamicElementFinder {
                   const tag = (el.tagName || '').toLowerCase();
                   const type = (el.getAttribute('type') || '').toLowerCase();
                   const role = (el.getAttribute('role') || '').toLowerCase();
+                  const autocomplete = (el.getAttribute('autocomplete') || '').toLowerCase();
                   const text = (el.innerText || '').trim().replace(/\\s+/g, ' ').slice(0, 240);
                   const ariaDescription = el.getAttribute('aria-description') || '';
                   const ariaDescribedBy = (el.getAttribute('aria-describedby') || '').split(/\\s+/).filter(Boolean)
@@ -88,7 +90,7 @@ public class DynamicElementFinder {
                   const clickable = tag === 'a' || tag === 'button' || ['button','link','menuitem','menuitemradio','option','tab','checkbox','radio','switch'].includes(role) || (tag === 'input' && ['button','submit','reset'].includes(type)) || el.hasAttribute('onclick') || (el.tabIndex >= 0 && style.cursor === 'pointer');
                   const semantic = ['h1','h2','h3','label','main','p','li'].includes(tag) || Boolean(el.getAttribute('aria-label')) || Boolean(role);
                   if (!clickable && !fillable && !selectable && !semantic && !text) continue;
-                  out.push({element:el, tag, type, role, id:el.id || '', name:el.getAttribute('name') || '',
+                  out.push({element:el, tag, type, role, autocomplete, id:el.id || '', name:el.getAttribute('name') || '',
                     placeholder:el.getAttribute('placeholder') || '', aria:el.getAttribute('aria-label') || '',
                     ariaDescription, ariaDescribedBy, accessible, alt, labelledBy, label:labels,
                     title:el.getAttribute('title') || '', text, href,
@@ -137,9 +139,12 @@ public class DynamicElementFinder {
         score += matchScore(d.get("title"), normalizedTarget, targetWords, 8);
         score += matchScore(d.get("role"), normalizedTarget, targetWords, 5);
         score += matchScore(d.get("type"), normalizedTarget, targetWords, 5);
+        score += matchScore(d.get("autocomplete"), normalizedTarget, targetWords, 8);
         if (action.equals("verify_visible") && Set.of("h1", "h2", "h3", "label").contains(d.get("tag"))) score += 2;
-        if (normalizedTarget.contains("email") && "email".equals(d.get("type"))) score += 10;
-        if (normalizedTarget.contains("password") && "password".equals(d.get("type"))) score += 10;
+        if (normalizedTarget.contains("email") && ("email".equals(d.get("type"))
+                || Set.of("email", "username").contains(d.get("autocomplete")))) score += 10;
+        if (normalizedTarget.contains("password") && ("password".equals(d.get("type"))
+                || "current-password".equals(d.get("autocomplete")))) score += 10;
         if (normalizedTarget.contains("search") && "search".equals(d.get("type"))) score += 6;
         if (action.equals("click") && !d.getOrDefault("href", "").isBlank()) score += 1;
         return score;
@@ -160,7 +165,8 @@ public class DynamicElementFinder {
                 + field("role", d.get("role")) + field("type", d.get("type")) + field("text", d.get("text"))
                 + field("label", d.get("label")) + field("aria-label", d.get("aria"))
                 + field("accessible-name", d.get("accessible")) + field("aria-description", d.get("ariaDescription"))
-                + field("placeholder", d.get("placeholder")) + field("name", d.get("name"))
+                + field("placeholder", d.get("placeholder")) + field("autocomplete", d.get("autocomplete"))
+                + field("name", d.get("name"))
                 + field("id", d.get("id"));
     }
 
@@ -177,3 +183,4 @@ public class DynamicElementFinder {
     private record Candidate(Map<String, String> data, WebElement element, int score) { }
     public record Match(WebElement element, String description, int score, Map<String, String> attributes) { }
 }
+

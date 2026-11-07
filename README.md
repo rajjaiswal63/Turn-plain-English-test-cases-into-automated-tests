@@ -1,70 +1,113 @@
-# Plain-English Browser Automation API
+# Task 2: Plain-English Browser Automation
 
-Java 21, Spring Boot, Selenium 4, Maven, and Groq Chat Completions. The API accepts a test case, asks Groq for a constrained JSON action plan, resolves elements from the live page DOM, runs the plan in headless Chrome, and returns a PASS/FAIL JSON result.
+A small REST API built with Java 21, Spring Boot, Selenium WebDriver, Maven, and OpenRouter. It turns a plain-English browser test into a restricted sequence of browser actions, runs those actions in Chrome, and returns `PASS` or `FAIL`.
+
+The project has no site-specific selectors or domain allow-list. Each request supplies the site URL and test instruction. It is intended for public websites with standard HTTP/HTTPS pages; see [Short Note.md](Short%20Note.md) for the approach and limitations.
 
 ## Requirements
 
 - JDK 21
-- Maven 3.9+ (or use the included Maven wrapper)
-- Google Chrome or Chromium
-- A Groq API key in `GROQ_API_KEY` (preferred); `OPENAI_API_KEY` is also accepted as a compatibility alias
+- Google Chrome installed
+- Internet access for Maven dependencies, Selenium Manager/driver setup, and OpenRouter requests
+- An OpenRouter API key with access to the configured model
 
-The default model is `openai/gpt-oss-20b`, which supports Groq strict JSON Schema output. Override it with `GROQ_MODEL` if desired. API keys are never stored in source files.
+The project uses Maven Wrapper, so a separate Maven installation is not required.
 
-## Build and run
+## Setup and run on Windows
+
+Open PowerShell in the project folder:
 
 ```powershell
-.\mvnw.cmd clean compile
-.\mvnw.cmd test
-$env:GROQ_API_KEY = "your-groq-api-key"
-# Or, if the key is already stored under this name:
-$env:OPENAI_API_KEY = "your-groq-api-key"
+cd "C:\Users\ASUS-PC\Desktop\CloudQA\task 2"
+$env:OPENROUTER_API_KEY = "your-openrouter-api-key"
+```
+
+Optionally choose a different OpenRouter model or server port:
+
+```powershell
+$env:OPENROUTER_MODEL = "openai/gpt-4.1-mini"
+$env:PORT = "8080"
+```
+
+Start the API:
+
+```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-Set the environment variable before starting the application. Without it, requests return a clear FAIL result that asks for `GROQ_API_KEY` or `OPENAI_API_KEY`.
+The server listens on `http://localhost:8080` by default. Keep this terminal open while sending requests. Press `Ctrl+C` to stop it. The key is read from the environment and is not stored in the project files.
 
-## Postman
+To run the packaged application instead:
 
-- Method: `POST`
-- URL: `http://localhost:8080/api/automation/run`
-- Header: `Content-Type: application/json`
-- Body → raw → JSON:
+```powershell
+.\mvnw.cmd -DskipTests package
+java -jar .\target\browser-automation-api-1.0.0.jar
+```
+
+## Run a test with Postman
+
+1. Start the application using the steps above.
+2. Create a `POST` request to `http://localhost:8080/api/automation/run`.
+3. Set `Content-Type` to `application/json`.
+4. Select **Body → raw → JSON** and enter a request such as:
 
 ```json
 {
-  "url": "https://phptravels.com/demo",
-  "testCase": "Open the website and verify that the homepage is displayed."
+  "url": "https://example.com",
+  "testCase": "Open the page and verify that the Example Domain heading is visible."
 }
 ```
 
-Expected response shape:
+Use the exact public page URL you want to test. For a login test, start at the relevant login page and include the test account values in the English instruction. The automation will not invent credentials.
+
+A successful response has this general shape:
 
 ```json
 {
   "success": true,
   "status": "PASS",
-  "testCase": "Open the website and verify that the homepage is displayed.",
+  "testCase": "Open the page and verify that the Example Domain heading is visible.",
   "message": "All planned browser actions and verifications succeeded.",
-  "executedSteps": ["Opened website", "Verified visible: homepage heading"],
+  "executedSteps": [
+    "Opened website",
+    "Verified text: Example Domain"
+  ],
   "error": null
 }
 ```
 
-The supported AI actions are `navigate`, `click`, `fill`, `select`, `wait`, `verify_visible`, `verify_text`, and `verify_url`. A run fails if Groq produces no verification, if an element match is ambiguous, or if any verification does not pass. Fill/select values must appear literally in the supplied test case; the model cannot invent input data.
+`FAIL` responses include the completed steps and an error message. `PASS` means the planned UI actions and checks succeeded; it does not prove backend or database behavior.
 
-## Dynamic element matching and URL safety
+## Project structure
 
-The finder inspects visible DOM elements and combines accessible labels, `aria-label`, `aria-labelledby`, labels, placeholders, names, IDs, input types, roles, titles, visible text, and link/button semantics. It scores candidates and fails on a weak or ambiguous match. No PHPTravels selectors or page-specific workflow are in the code.
+```text
+src/main/java/com/example/automation/
+├── AutomationApplication.java
+├── controller/AutomationController.java
+├── model/AutomationModels.java
+└── service/
+    ├── DynamicElementFinder.java
+    ├── OpenRouterService.java
+    ├── SeleniumAutomationService.java
+    └── UrlSafetyValidator.java
+```
 
-Only absolute HTTP/HTTPS URLs on standard ports are accepted. Localhost, private, reserved, and non-public IP destinations are rejected after DNS resolution. Selenium's Chrome DevTools Fetch request interception also checks and blocks browser requests that fail those checks, including redirects and subresources. Browser resources are always closed after a run.
+- `AutomationController` exposes and validates the REST request.
+- `OpenRouterService` sends the test case and visible page summary to OpenRouter and parses its structured action plan.
+- `DynamicElementFinder` inspects visible DOM controls and matches targets using labels, accessible names, placeholders, text, IDs/names, input type, and autocomplete metadata.
+- `SeleniumAutomationService` runs the plan one step at a time, refreshes the page summary after interactions, verifies results, and closes Chrome.
+- `UrlSafetyValidator` blocks local, private, and reserved destinations to reduce SSRF risk.
 
-## PHPTravels checks
+Supported actions are `navigate`, `click`, `fill`, `select`, `wait`, `verify_visible`, `verify_text`, and `verify_url`. A request is limited to 20 steps and 8 page-planning rounds.
 
-Try these as separate Postman requests:
+## Configuration and safety
 
-1. `Open the website and verify the homepage.`
-2. `Find the login option and navigate to the login page. Verify that the login page is displayed.`
-3. `Find the login option, open the login page, and verify that the email and password fields are visible.`
+`src/main/resources/application.properties` reads:
 
-The live checks require a working Groq key, network access, Chrome, and a ChromeDriver available through Selenium Manager. `mvn test` runs local URL-safety unit tests and does not call Groq or claim that the live PHPTravels cases passed.
+```properties
+openrouter.api-key=${OPENROUTER_API_KEY:}
+openrouter.model=${OPENROUTER_MODEL:openai/gpt-4.1-mini}
+server.port=${PORT:8080}
+```
+
+The test instruction and visible page summary are sent to OpenRouter. Use disposable test accounts and do not put real customer information in test cases. URL validation permits public HTTP/HTTPS sites on standard ports and blocks local/private addresses.

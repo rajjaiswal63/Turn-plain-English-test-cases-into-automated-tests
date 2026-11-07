@@ -12,7 +12,7 @@
     <artifactId>browser-automation-api</artifactId>
     <version>1.0.0</version>
     <name>browser-automation-api</name>
-    <description>Plain-English browser automation with Spring Boot, Selenium, and Groq.</description>
+    <description>Plain-English browser automation with Spring Boot, Selenium, and OpenRouter.</description>
     <properties>
         <java.version>21</java.version>
         <selenium.version>4.52.0</selenium.version>
@@ -46,3 +46,4 @@
         </plugins>
     </build>
 </project>
+
